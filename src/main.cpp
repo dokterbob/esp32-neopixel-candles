@@ -12,7 +12,7 @@ const char wifiInitialApPassword[] = "everythingmustgo";
 
 #define ONBOARD_LED 2
 #define NUM_LEDS 12
-#define CONFIG_VERSION "dem2"
+#define CONFIG_VERSION "dem3"
 
 // -- Method declarations.
 void handleRoot();
