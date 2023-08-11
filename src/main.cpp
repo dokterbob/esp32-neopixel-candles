@@ -1,6 +1,7 @@
 #include <FastLED.h>
 #include <Candle.h>
 #include <IotWebConf.h>
+#include <IotWebConfTParameter.h>
 #include <HTTPUpdateServer.h>
 
 // -- Initial name of the Thing. Used e.g. as SSID of the own Access Point.
@@ -11,15 +12,34 @@ const char wifiInitialApPassword[] = "everythingmustgo";
 
 #define ONBOARD_LED 2
 #define NUM_LEDS 12
-#define CONFIG_VERSION "dem1"
+#define CONFIG_VERSION "dem2"
 
 // -- Method declarations.
 void handleRoot();
+void configSaved();
 
 DNSServer dnsServer;
 WebServer server(80);
 HTTPUpdateServer httpUpdater;
 IotWebConf iotWebConf(thingName, &dnsServer, &server, wifiInitialApPassword, CONFIG_VERSION);
+
+iotwebconf::ParameterGroup group1 = iotwebconf::ParameterGroup("group1", "Light settings");
+
+iotwebconf::CheckboxTParameter candleParam =
+   iotwebconf::Builder<iotwebconf::CheckboxTParameter>("candle").
+   label("Be candles").
+   defaultValue(true).
+   build();
+
+iotwebconf::IntTParameter<uint8_t> brightnessParam =
+  iotwebconf::Builder<iotwebconf::IntTParameter<uint8_t>>("brightnessParam").
+  label("Brightness").
+  defaultValue(255).
+  min(1).
+  max(255).
+  step(1).
+  placeholder("1..255").
+  build();
 
 // Set these to your desired credentials.
 const char *ssid = "Jemoeder";
@@ -42,6 +62,11 @@ void setup() {
       }
     );
 
+    group1.addItem(&candleParam);
+    group1.addItem(&brightnessParam);
+    iotWebConf.addParameterGroup(&group1);
+    iotWebConf.setConfigSavedCallback(&configSaved);
+
     // -- Initializing the configuration.
     iotWebConf.init();
 
@@ -55,7 +80,7 @@ void setup() {
     FastLED.addLeds<ESPDMX>(leds, NUM_LEDS);
     FastLED.setCorrection(TypicalPixelString);
     FastLED.setTemperature(Candle);
-    // FastLED.setBrightness(8); // THIS WORKS SO FUCKING WELL!!!
+    //  // THIS WORKS SO FUCKING WELL!!!
 
     for (size_t i=0; i<NUM_LEDS; i++) {
         // Reset LED values
@@ -76,14 +101,16 @@ void setup() {
 
 
 uint8_t hue = 0;
+bool beACandle = true;
+
 void loop()
 {
     EVERY_N_MILLIS(16) {
       for (size_t i=0; i<NUM_LEDS; i++) {
           leds[i] = CHSV(
             add8(hue, mul8(i, 120)),
-            saturation[i].get_next_brightness(),
-            candles[i].get_next_brightness()
+            beACandle ? saturation[i].get_next_brightness() : 255,
+            beACandle ? candles[i].get_next_brightness() : 255
           );
       }
     }
@@ -114,4 +141,9 @@ void handleRoot()
   s += "</body></html>\n";
 
   server.send(200, "text/html", s);
+}
+
+void configSaved() {
+  FastLED.setBrightness(brightnessParam.value());
+  beACandle = candleParam.value();
 }
