@@ -12,7 +12,7 @@ const char wifiInitialApPassword[] = "everythingmustgo";
 
 #define ONBOARD_LED 2
 #define NUM_LEDS 12
-#define CONFIG_VERSION "dem3"
+#define CONFIG_VERSION "dem4"
 
 // -- Method declarations.
 void handleRoot();
@@ -25,14 +25,26 @@ IotWebConf iotWebConf(thingName, &dnsServer, &server, wifiInitialApPassword, CON
 
 iotwebconf::ParameterGroup group1 = iotwebconf::ParameterGroup("group1", "Light settings");
 
+iotwebconf::CheckboxTParameter darknessParam =
+   iotwebconf::Builder<iotwebconf::CheckboxTParameter>("darkness").
+   label("Be darkness").
+   defaultValue(false).
+   build();
+
 iotwebconf::CheckboxTParameter candleParam =
    iotwebconf::Builder<iotwebconf::CheckboxTParameter>("candle").
    label("Be candles").
    defaultValue(true).
    build();
 
+iotwebconf::CheckboxTParameter rainbowParam =
+   iotwebconf::Builder<iotwebconf::CheckboxTParameter>("rainbow").
+   label("Be a rainbow").
+   defaultValue(true).
+   build();
+
 iotwebconf::IntTParameter<uint8_t> brightnessParam =
-  iotwebconf::Builder<iotwebconf::IntTParameter<uint8_t>>("brightnessParam").
+  iotwebconf::Builder<iotwebconf::IntTParameter<uint8_t>>("brightness").
   label("Brightness").
   defaultValue(255).
   min(0).
@@ -62,7 +74,9 @@ void setup() {
       }
     );
 
+    group1.addItem(&darknessParam);
     group1.addItem(&candleParam);
+    group1.addItem(&rainbowParam);
     group1.addItem(&brightnessParam);
     iotWebConf.addParameterGroup(&group1);
     iotWebConf.setConfigSavedCallback(&configSaved);
@@ -102,16 +116,21 @@ void setup() {
 
 uint8_t hue = 0;
 bool beACandle = true;
+bool beARainbow = true;
 
 void loop()
 {
     EVERY_N_MILLIS(16) {
       for (size_t i=0; i<NUM_LEDS; i++) {
+        if (beARainbow) {
           leds[i] = CHSV(
             add8(hue, mul8(i, 120)),
             beACandle ? saturation[i].get_next_brightness() : 255,
             beACandle ? candles[i].get_next_brightness() : 255
           );
+        } else {
+          leds[i] = CRGB::White;
+        }
       }
     }
 
@@ -136,14 +155,44 @@ void handleRoot()
     return;
   }
   String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
-  s += "<title>IotWebConf 01 Minimal</title></head><body>";
-  s += "Go to <a href='config'>configure page</a> to change settings.";
+  s += "<title>Je moeder (is the best DMX controller)</title>";
+  s += "<style>.de{background-color:#ffaaaa;} .em{font-size:0.8em;color:#bb0000;padding-bottom:0px;} .c{text-align: center;} div,input,select{padding:5px;font-size:1em;} input{width:95%;} select{width:100%} input[type=checkbox]{width:auto;scale:1.5;margin:10px;} body{text-align: center;font-family:verdana;} button{border:0;border-radius:0.3rem;background-color:#16A1E7;color:#fff;line-height:2.4rem;font-size:1.2rem;width:100%;} fieldset{border-radius:0.3rem;margin: 0px;}
+</style>";
+  s += "</head><body>";
+  s += "<h1>Je moeder</h1><h2>(is the best DMX controller)</h2>";
+
+  // Current config
+  s += "<h3>Current config:<h3><ul>";
+  if (darknessParam.value()) {
+    s += "<li>I am darkness.</li>";
+  }
+
+  if (beACandle) {
+    s += "<li>I am candles.</li>";
+  }
+
+  if (beARainbow) {
+    s += "<li>I am a rainbow.</li>";
+  }
+
+  s += "<li>My brightness is ";
+  s += brightnessParam.value();
+  s += " of 255.</li>";
+  s += "</ul>";
+
+  s += "<p>Go to <a href='config'>configure page</a> to change settings.</p>";
   s += "</body></html>\n";
 
   server.send(200, "text/html", s);
 }
 
 void configSaved() {
-  FastLED.setBrightness(brightnessParam.value());
+  if (darknessParam.value()) {
+    FastLED.setBrightness(0);
+  } else {
+    FastLED.setBrightness(brightnessParam.value());
+  }
+
   beACandle = candleParam.value();
+  beARainbow = rainbowParam.value();
 }
