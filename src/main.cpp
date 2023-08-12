@@ -35,10 +35,10 @@ iotwebconf::IntTParameter<uint8_t> brightnessParam =
   iotwebconf::Builder<iotwebconf::IntTParameter<uint8_t>>("brightnessParam").
   label("Brightness").
   defaultValue(255).
-  min(1).
+  min(0).
   max(255).
   step(1).
-  placeholder("1..255").
+  placeholder("0..255").
   build();
 
 // Set these to your desired credentials.
