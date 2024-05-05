@@ -19,13 +19,7 @@ const char wifiInitialApPassword[] = "candles12345";
 // Use 3 LED's to make white
 #define HUE_DEGREES 360/3
 
-// How long to wait before increasing hue
-#define HUE_DELAY 100
-
-// How long to wait between candle frames
-#define CANDLE_DELAY 16
-
-#define CONFIG_VERSION "02"
+#define CONFIG_VERSION "03"
 
 // -- Method declarations.
 void handleRoot();
@@ -53,7 +47,7 @@ iotwebconf::CheckboxTParameter candleParam =
 iotwebconf::CheckboxTParameter rainbowParam =
    iotwebconf::Builder<iotwebconf::CheckboxTParameter>("rainbow").
    label("Be a rainbow").
-   defaultValue(true).
+   defaultValue(false).
    build();
 
 iotwebconf::IntTParameter<uint8_t> brightnessParam =
@@ -66,17 +60,56 @@ iotwebconf::IntTParameter<uint8_t> brightnessParam =
   placeholder("0..255").
   build();
 
+iotwebconf::IntTParameter<uint8_t> candleSpeedParam =
+  iotwebconf::Builder<iotwebconf::IntTParameter<uint8_t>>("candle_speed").
+  label("Candle speed (FPS)").
+  defaultValue(100).
+  min(1).
+  max(255).
+  step(1).
+  placeholder("1..255").
+  build();
+
+iotwebconf::IntTParameter<uint8_t> hueSpeedParam =
+  iotwebconf::Builder<iotwebconf::IntTParameter<uint8_t>>("hue_speed").
+  label("Hue speed (FPS)").
+  defaultValue(10).
+  min(1).
+  max(255).
+  step(1).
+  placeholder("1..255").
+  build();
+
+iotwebconf::IntTParameter<uint8_t> hueRepeatParam =
+  iotwebconf::Builder<iotwebconf::IntTParameter<uint8_t>>("hue_repeat").
+  label("Hue light repeat count").
+  defaultValue(3).
+  min(3).
+  max(255).
+  step(3).
+  placeholder("3..255").
+  build();
+
+// Declare runtime configuration.
+bool beACandle;
+bool beARainbow;
+uint8_t candleDelay;
+uint8_t hueDelay;
+uint8_t hueModulus;
+
+// Declare leds.
 CRGB leds[NUM_LEDS];
+byte candle_hues[NUM_LEDS];
 candle::Candle candles[NUM_LEDS];
 candle::Candle saturation[NUM_LEDS];
 
 void setupFastLED() {
   // https://www.reddit.com/r/FastLED/comments/gpu1fv/best_pins_to_use_with_esp32/
-  FastLED.addLeds<NEOPIXEL, 19>(leds, 0 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
-  FastLED.addLeds<NEOPIXEL, 18>(leds, 1 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
-  FastLED.addLeds<NEOPIXEL, 5>(leds, 2 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
-  FastLED.addLeds<NEOPIXEL, 17>(leds, 3 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
-  FastLED.addLeds<NEOPIXEL, 16>(leds, 4 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<WS2811, 23, RGB>(leds, 0 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<WS2811, 22, RGB>(leds, 1 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<WS2811, 21, RGB>(leds, 2 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<WS2811, 19, RGB>(leds, 3 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<WS2811, 18, RGB>(leds, 4 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
 
   FastLED.setCorrection(TypicalPixelString);
   FastLED.setTemperature(Candle);
@@ -99,12 +132,23 @@ void setupIotWebConf() {
   group1.addItem(&candleParam);
   group1.addItem(&rainbowParam);
   group1.addItem(&brightnessParam);
+  group1.addItem(&candleSpeedParam);
+  group1.addItem(&hueSpeedParam);
+  group1.addItem(&hueRepeatParam);
+
   iotWebConf.addParameterGroup(&group1);
   iotWebConf.setConfigSavedCallback(&configSaved);
 
   // -- Initializing the configuration.
   iotWebConf.setStatusPin(STATUS_PIN);
   iotWebConf.init();
+
+  // Set runtime configuration based on config.
+  beACandle = candleParam.value();
+  beARainbow = rainbowParam.value();
+  candleDelay = 1000 / candleSpeedParam.value();
+  hueDelay = 1000 / hueSpeedParam.value();
+  hueModulus = 360 / hueRepeatParam.value();
 
   // -- Set up required URL handlers on the web server.
   server.on("/", handleRoot);
@@ -114,11 +158,12 @@ void setupIotWebConf() {
 
 void setupCandles() {
   for (size_t i=0; i<NUM_LEDS; i++) {
-      // Initialize candles
-      candles[i].init(96, 255, 2, 96);
+      candle_hues[i] = random8(26, 60);
+
+      candles[i].init(random8(16, 96), 255, random8(3, 8), random8(6, 22));
 
       // Initialize random saturation
-      saturation[i].init(112, 255, 20, 62);
+      saturation[i].init(random8(112, 240), random8(241, 255), random8(10, 20), random8(22, 62));
 
   }
 }
@@ -135,17 +180,13 @@ void setup() {
     Serial.println("Ready.");
 }
 
-
 uint8_t hue = 0;
-bool beACandle = true;
-bool beARainbow = true;
-
 void loop()
 {
-    EVERY_N_MILLIS(CANDLE_DELAY) {
+    EVERY_N_MILLIS(candleDelay) {
       for (size_t i=0; i<NUM_LEDS; i++) {
         leds[i] = CHSV(
-          beARainbow ? add8(hue, mul8(i, HUE_DEGREES)) : 0,
+          beARainbow ? add8(hue, mul8(i, hueModulus)) : candle_hues[i],
           beACandle ? saturation[i].get_next_brightness() : 255,
           beACandle ? candles[i].get_next_brightness() : 255
         );
@@ -156,7 +197,7 @@ void loop()
 
     iotWebConf.doLoop();
 
-    EVERY_N_MILLIS(HUE_DELAY) {
+    EVERY_N_MILLIS(hueDelay) {
       hue++;
     }
 }
@@ -195,6 +236,27 @@ void handleRoot()
   s += "<li>My brightness is ";
   s += brightnessParam.value();
   s += " of 255.</li>";
+
+
+  s += "<li>My candle speed is ";
+  s += candleSpeedParam.value();
+  s += " FPS (delay: ";
+  s += candleDelay;
+  s += " ms).</li>";
+
+  s += "<li>My hue speed is ";
+  s += hueSpeedParam.value();
+  s += " FPS (delay: ";
+  s += hueDelay;
+  s += " ms).</li>";
+
+  s += "<li>My hue repeats every ";
+  s += hueRepeatParam.value();
+  s += " lights (modulo: ";
+  s += hueModulus;
+  s += " degrees).</li>";
+
+
   s += "</ul>";
 
   s += "<p>Go to <a href='config'>configure page</a> to change settings.</p>";
@@ -212,4 +274,7 @@ void configSaved() {
 
   beACandle = candleParam.value();
   beARainbow = rainbowParam.value();
+  candleDelay = 1000 / candleSpeedParam.value();
+  hueDelay = 1000 / hueSpeedParam.value();
+  hueModulus = 360 / hueRepeatParam.value();
 }
