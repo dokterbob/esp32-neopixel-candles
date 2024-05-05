@@ -8,9 +8,9 @@
 const char thingName[] = "Candles";
 
 // -- Initial password to connect to the Thing, when it creates an own Access Point.
-const char wifiInitialApPassword[] = "candles";
+const char wifiInitialApPassword[] = "candles12345";
 
-#define ONBOARD_LED 2
+#define STATUS_PIN 32
 
 #define NUM_STRIPS 5
 #define NUM_LEDS_PER_STRIP 64
@@ -25,7 +25,7 @@ const char wifiInitialApPassword[] = "candles";
 // How long to wait between candle frames
 #define CANDLE_DELAY 16
 
-#define CONFIG_VERSION "01"
+#define CONFIG_VERSION "02"
 
 // -- Method declarations.
 void handleRoot();
@@ -66,21 +66,17 @@ iotwebconf::IntTParameter<uint8_t> brightnessParam =
   placeholder("0..255").
   build();
 
-// Set these to your desired credentials.
-const char *ssid = "Candles";
-const char *password = "candles";
-
 CRGB leds[NUM_LEDS];
 candle::Candle candles[NUM_LEDS];
 candle::Candle saturation[NUM_LEDS];
 
 void setupFastLED() {
   // https://www.reddit.com/r/FastLED/comments/gpu1fv/best_pins_to_use_with_esp32/
-  FastLED.addLeds<NEOPIXEL, 13>(leds, 0 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
-  FastLED.addLeds<NEOPIXEL, 14>(leds, 1 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
-  FastLED.addLeds<NEOPIXEL, 15>(leds, 2 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
-  FastLED.addLeds<NEOPIXEL, 18>(leds, 3 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
-  FastLED.addLeds<NEOPIXEL, 19>(leds, 4 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<NEOPIXEL, 19>(leds, 0 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<NEOPIXEL, 18>(leds, 1 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<NEOPIXEL, 5>(leds, 2 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<NEOPIXEL, 17>(leds, 3 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
+  FastLED.addLeds<NEOPIXEL, 16>(leds, 4 * NUM_LEDS_PER_STRIP, NUM_LEDS_PER_STRIP);
 
   FastLED.setCorrection(TypicalPixelString);
   FastLED.setTemperature(Candle);
@@ -107,6 +103,7 @@ void setupIotWebConf() {
   iotWebConf.setConfigSavedCallback(&configSaved);
 
   // -- Initializing the configuration.
+  iotWebConf.setStatusPin(STATUS_PIN);
   iotWebConf.init();
 
   // -- Set up required URL handlers on the web server.
@@ -127,17 +124,13 @@ void setupCandles() {
 }
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
     Serial.println();
     Serial.println("Starting up...");
 
     setupIotWebConf();
     setupFastLED();
     setupCandles();
-
-    // Signal that we're alive!
-    pinMode(ONBOARD_LED, OUTPUT);
-    digitalWrite(ONBOARD_LED, HIGH);
 
     Serial.println("Ready.");
 }
@@ -180,10 +173,10 @@ void handleRoot()
     return;
   }
   String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
-  s += "<title>Je moeder (is the best light controller)</title>";
+  s += "<title>Candles</title>";
   s += "<style>.de{background-color:#ffaaaa;} .em{font-size:0.8em;color:#bb0000;padding-bottom:0px;} .c{text-align: center;} div,input,select{padding:5px;font-size:1em;} input{width:95%;} select{width:100%} input[type=checkbox]{width:auto;scale:1.5;margin:10px;} body{text-align: center;font-family:verdana;} button{border:0;border-radius:0.3rem;background-color:#16A1E7;color:#fff;line-height:2.4rem;font-size:1.2rem;width:100%;} fieldset{border-radius:0.3rem;margin: 0px;}</style>";
   s += "</head><body>";
-  s += "<h1>Je moeder</h1><h2>(is the best light controller)</h2>";
+  s += "<h1>Candles</h1>";
 
   // Current config
   s += "<h3>Current config:<h3><ul>";
