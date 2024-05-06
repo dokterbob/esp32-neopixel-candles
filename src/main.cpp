@@ -183,7 +183,9 @@ void setup() {
 uint8_t hue = 0;
 void loop()
 {
-    EVERY_N_MILLIS(candleDelay) {
+    EVERY_N_MILLIS_I(candle_timer, candleDelay) {
+      if (candle_timer.getPeriod() != candleDelay) candle_timer.setPeriod(candleDelay);
+
       for (size_t i=0; i<NUM_LEDS; i++) {
         leds[i] = CHSV(
           beARainbow ? add8(hue, mul8(i, hueModulus)) : candle_hues[i],
@@ -197,7 +199,8 @@ void loop()
 
     iotWebConf.doLoop();
 
-    EVERY_N_MILLIS(hueDelay) {
+    EVERY_N_MILLIS_I(hue_timer, hueDelay) {
+      if (hue_timer.getPeriod() != hueDelay) hue_timer.setPeriod(hueDelay);
       hue++;
     }
 }
