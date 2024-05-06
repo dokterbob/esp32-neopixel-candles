@@ -2,6 +2,8 @@
 
 Emulate candles on 'neopixel' (WS2812B) type of lights on ESP32 mycontrollers.
 
+https://github.com/dokterbob/esp32-neopixel-candles/assets/22742/d57898bc-6a0a-4c0a-8c28-d6a8c5826770
+
 ## Default config
 Access point: Candles
 Access point password: candles12345
