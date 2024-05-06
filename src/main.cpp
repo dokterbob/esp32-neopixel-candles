@@ -163,7 +163,7 @@ void setupCandles() {
       candles[i].init(random8(16, 96), 255, random8(3, 8), random8(6, 22));
 
       // Initialize random saturation
-      saturation[i].init(random8(112, 240), random8(241, 255), random8(10, 20), random8(22, 62));
+      saturation[i].init(random8(112, 240), random8(231, 245), random8(10, 20), random8(22, 62));
 
   }
 }
